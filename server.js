@@ -33,7 +33,7 @@ const routes = {
     'POST': createComment
   },
   '/comments/:id': {
-    //'PUT': updateComment,
+    'PUT': updateComment
     //'DELETE': deleteComment
   },
   '/comments/:id/upvote': {
@@ -159,14 +159,13 @@ function createComment(url, request) {
   const requestComment = request.body && request.body.comment;
   const response = {};
 
-  if (requestComment && requestComment.title && requestComment.url &&
+  if (requestComment && requestComment.body && requestComment.articleId && 
     requestComment.username && database.users[requestComment.username]) {
     const comment = {
       id: database.nextArticleId++,
-      title: requestComment.title,
-      url: requestComment.url,
+      body: requestComment.body,
+      articleId: requestComment.articleId,    
       username: requestComment.username,
-      commentIds: [],
       upvotedBy: [],
       downvotedBy: []
     };
@@ -204,6 +203,39 @@ function updateArticle(url, request) {
   return response;
 }
 
+// Update Comment
+
+function updateComment(url, request) {
+  const id = Number(url.split('/').filter(segment => segment)[1]);
+  const savedComment = database.comments[id];
+  const requestComment= request.body && request.body.comment;
+  const response = {};
+  
+  // console.log(savedComment); // this returns { id: 2, body: 'This is a comment!', arcticeId: 1, username: 'msaul', upvotedBy: [], downvotedBy: [] }
+  // console.log(savedComment.username); // this returns 'msaul'
+  // console.log(requestComment); // this returns { id: 2, body: 'lastest comment' }
+  // console.log(request.body); // { comment: { id: 2, body: 'I\'m kjfkdjfkd a comment!' } }
+  // console.log(request.body.comment); // { id: 2, body: 'I\'m kjfkdjfkd a comment!' }
+  // console.log(savedComment.body); // 'This is a comment'
+  // console.log(request.body.comment.body); // 'New comment'
+  console.log(database.comments[id].body); // 'This is a comment'
+
+  if (!id || !requestComment) {
+    response.status = 400;
+  } else if (!requestComment) {
+    response.status = 404;
+  } else {
+
+    savedComment.body = requestComment.body;
+
+     response.body = {comment: savedComment};
+    // response.body = {comment: requestComment}; // the upvotedBy and downvotedBy disappear when you do this
+    response.status = 200;
+  }
+
+  return response;
+}
+
 function deleteArticle(url, request) {
   const id = Number(url.split('/').filter(segment => segment)[1]);
   const savedArticle = database.articles[id];
@@ -226,6 +258,30 @@ function deleteArticle(url, request) {
 
   return response;
 }
+
+// Delete Comment
+// function deleteComment(url, request) {
+//   const id = Number(url.split('/').filter(segment => segment)[1]);
+//   const savedComment = database.comments[id];
+//   const response = {};
+
+//   if (savedComment) {
+//     database.comments[id] = null;
+//     savedArticle.commentIds.forEach(commentId => {
+//       const comment = database.comments[commentId];
+//       database.comments[commentId] = null;
+//       const userCommentIds = database.users[comment.username].commentIds;
+//       userCommentIds.splice(userCommentIds.indexOf(id), 1);
+//     });
+//     const userArticleIds = database.users[savedArticle.username].articleIds;
+//     userArticleIds.splice(userArticleIds.indexOf(id), 1);
+//     response.status = 204;
+//   } else {
+//     response.status = 400;
+//   }
+
+//   return response;
+// }
 
 function upvoteArticle(url, request) {
   const id = Number(url.split('/').filter(segment => segment)[1]);
@@ -312,13 +368,13 @@ const requestHandler = (request, response) => {
   response.setHeader(
       'Access-Control-Allow-Headers', 'X-Requested-With,content-type');
 
-  if (!routes[route] || !routes[route][method]) {
+  if (!routes[route] || !routes[route][method]) { // using bracket notation so it can accept a string
     response.statusCode = 400;
     return response.end();
   }
-
+  // This is where all the magic happens
   if (method === 'GET' || method === 'DELETE') {
-    const methodResponse = routes[route][method].call(null, url);
+    const methodResponse = routes[route][method].call(null, url); // null is the context being set for this
     !isTestMode && (typeof saveDatabase === 'function') && saveDatabase();
 
     response.statusCode = methodResponse.status;
@@ -340,7 +396,7 @@ const requestHandler = (request, response) => {
 };
 
 const getRequestRoute = (url) => {
-  const pathSegments = url.split('/').filter(segment => segment);
+  const pathSegments = url.split('/').filter(segment => segment); // Testing to make sure it's not a falsey value; likely empty string in this case
 
   if (pathSegments.length === 1) {
     return `/${pathSegments[0]}`;
